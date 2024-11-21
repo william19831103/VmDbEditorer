@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 import ctypes
 import shutil
+from PyQt5.QtWidgets import QDesktopWidget
 
 from licensing.models import *
 from licensing.methods import Key, Helpers
@@ -1458,8 +1459,7 @@ class SpellDatabaseEditor(QMainWindow):
                 # 检查新ID是否已存在
                 self.cursor.execute(
                     "SELECT COUNT(*) FROM spell_template WHERE entry = %s AND build = %s",
-                    (new_id, new_build_val)
-                )
+                    (new_id, new_build_val))
                 if self.cursor.fetchone()[0] > 0:
                     QMessageBox.warning(self, '警告', '该法术ID已存在')
                     return
@@ -2568,6 +2568,17 @@ def save_license_key(key):
     except:
         return False
 
+# 添加一个辅助函数来居中显示窗口
+def center_window(window):
+    """将窗口移动到屏幕中央"""
+    screen = QDesktopWidget().screenGeometry()
+    size = window.geometry()
+    x = (screen.width() - size.width()) // 2
+    y = (screen.height() - size.height()) // 2
+    # 确保窗口不会太靠上，至少留出标题栏的空间
+    y = max(y, 50)  
+    window.move(x, y)
+
 # 修改主程序部分
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -2579,20 +2590,33 @@ if __name__ == '__main__':
         # 如果没有本地密钥,显示输入对话框
         key_dialog = QDialog()
         key_dialog.setWindowTitle('输入许可证密钥')
+        key_dialog.setFixedSize(400, 150)  # 设置固定大小
         layout = QVBoxLayout()
         
+        # 添加说明标签
+        info_label = QLabel('请输入有效的许可证密钥:')
+        info_label.setStyleSheet('padding: 10px;')
+        layout.addWidget(info_label)
+        
+        # 输入框
         key_input = QLineEdit()
         key_input.setPlaceholderText('请输入许可证密钥')
+        key_input.setStyleSheet('padding: 5px; margin: 5px;')
         layout.addWidget(key_input)
         
+        # 按钮
         button_box = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
         button_box.accepted.connect(key_dialog.accept)
         button_box.rejected.connect(key_dialog.reject)
+        button_box.setStyleSheet('padding: 10px;')
         layout.addWidget(button_box)
         
         key_dialog.setLayout(layout)
+        
+        # 将对话框移到屏幕中央
+        center_window(key_dialog)
         
         if key_dialog.exec_() == QDialog.Accepted:
             license_key = key_input.text().strip()
@@ -2600,31 +2624,67 @@ if __name__ == '__main__':
             sys.exit()
 
     # 验证许可证
-    result = Key.activate(
-        token=auth,
-        rsa_pub_key=RSAPubKey,
-        product_id=28126,
-        key=license_key,
-        machine_code=Helpers.GetMachineCode()
-    )
+    try:
+        result = Key.activate(
+            token=auth,
+            rsa_pub_key=RSAPubKey,
+            product_id=28126,
+            key=license_key,
+            machine_code=Helpers.GetMachineCode()
+        )
 
-    if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
-        # 许可证无效
-        QMessageBox.critical(None, '错误', '许可证无效或在错误的机器上使用')
-        # 删除无效的本地许可证文件
-        if os.path.exists('license.json'):
-            os.remove('license.json')
+        if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
+            # 许可证无效时显示错误对话框
+            error_dialog = QMessageBox()
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setWindowTitle('错误')
+            error_dialog.setText('许可证无效或在错误的机器上使用')
+            error_dialog.setStandardButtons(QMessageBox.Ok)
+            # 确保错误对话框显示在屏幕中央
+            center_window(error_dialog)
+            error_dialog.exec_()
+            
+            # 删除无效的本地许可证文件
+            if os.path.exists('license.json'):
+                os.remove('license.json')
+            sys.exit()
+        else:
+            # 许可证有效,保存到本地
+            if not load_license_key():  # 只在第一次验证通过时保存
+                save_license_key(license_key)
+            
+            # 显示许可证信息
+            license_info = result[0]
+            print("许可证有效!过期时间:", license_info.expires)
+            
+            # 启动主程序
+            editor = SpellDatabaseEditor()
+            
+            # 尝试恢复上次的窗口位置
+            config = Config()
+            preferences = config.get_preferences()
+            if 'window_geometry' in preferences:
+                geometry = preferences['window_geometry']
+                editor.setGeometry(
+                    geometry.get('x', 100),
+                    geometry.get('y', 100),
+                    geometry.get('width', 1920),
+                    geometry.get('height', 1000)
+                )
+            else:
+                # 如果没有保存的位置，则居中显示
+                center_window(editor)
+                
+            editor.show()
+            sys.exit(app.exec_())
+            
+    except Exception as e:
+        # 处理验证过程中的异常
+        error_dialog = QMessageBox()
+        error_dialog.setIcon(QMessageBox.Critical)
+        error_dialog.setWindowTitle('错误')
+        error_dialog.setText(f'验证许可证时发生错误:\n{str(e)}')
+        error_dialog.setStandardButtons(QMessageBox.Ok)
+        center_window(error_dialog)
+        error_dialog.exec_()
         sys.exit()
-    else:
-        # 许可证有效,保存到本地
-        if not load_license_key():  # 只在第一次验证通过时保存
-            save_license_key(license_key)
-        
-        # 显示许可证信息
-        license_info = result[0]
-        print("许可证有效!过期时间:", license_info.expires)
-        
-        # 启动主程序
-        editor = SpellDatabaseEditor()
-        editor.show()
-        sys.exit(app.exec_())
