@@ -9,6 +9,13 @@ from datetime import datetime
 import ctypes
 import shutil
 
+from licensing.models import *
+from licensing.methods import Key, Helpers
+
+RSAPubKey = "<RSAKeyValue><Modulus>uQUWtKKob4exvz0nyAUF2uqqJKKrthzCDkHtiI1sZqvlUf6WUpN1WyCpIQlxGV8Bbc7ZpdqjeNoTa6wTtpAHPA2llOD2k5dZpxFH017RZdgBQQrZYO7rW8Bf0OcpuyY6I8E6PuCRNnuMsrp+NsSDtnzxI2mRgfimj148jD82PUhEQytRuN6t49B8LzGWNCP8Elp1m1RD2h6BLkImfEB4UF6V2qa9BxHUukYu6CjtgJrCxciHta7g18llAuYDIPDHlUkH+acBAMkYZXcld9gkSEY/Pj6BCbRQbL8cs84g4h/2WlFREcb4aKLbIqtng/RhnX1WDPzBmMYxm4H96EQEhw==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>"
+auth = "WyI5ODQwNDA3MCIsInlNR2hGaXVjUXgrNHczTytUaUl1OFFsbm96SWV3SzRTTjVBOERsdysiXQ=="
+
+
 from spell_fields import (
     SPELL_FIELDS, 
     SPELL_ATTRIBUTES,
@@ -2539,8 +2546,85 @@ class SpellDatabaseEditor(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, '错误', f'搜索失败: {str(e)}')
 
+def load_license_key():
+    """从本地文件加载许可证密钥"""
+    license_file = "license.json"
+    if os.path.exists(license_file):
+        try:
+            with open(license_file, 'r') as f:
+                data = json.load(f)
+                return data.get('key')
+        except:
+            return None
+    return None
+
+def save_license_key(key):
+    """保存许可证密钥到本地文件"""
+    license_file = "license.json"
+    try:
+        with open(license_file, 'w') as f:
+            json.dump({'key': key}, f)
+        return True
+    except:
+        return False
+
+# 修改主程序部分
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    editor = SpellDatabaseEditor()
-    editor.show()
-    sys.exit(app.exec_())
+
+    # 先尝试从本地加载许可证密钥
+    license_key = load_license_key()
+    
+    if not license_key:
+        # 如果没有本地密钥,显示输入对话框
+        key_dialog = QDialog()
+        key_dialog.setWindowTitle('输入许可证密钥')
+        layout = QVBoxLayout()
+        
+        key_input = QLineEdit()
+        key_input.setPlaceholderText('请输入许可证密钥')
+        layout.addWidget(key_input)
+        
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(key_dialog.accept)
+        button_box.rejected.connect(key_dialog.reject)
+        layout.addWidget(button_box)
+        
+        key_dialog.setLayout(layout)
+        
+        if key_dialog.exec_() == QDialog.Accepted:
+            license_key = key_input.text().strip()
+        else:
+            sys.exit()
+
+    # 验证许可证
+    result = Key.activate(
+        token=auth,
+        rsa_pub_key=RSAPubKey,
+        product_id=28126,
+        key=license_key,
+        machine_code=Helpers.GetMachineCode()
+    )
+
+    if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
+        # 许可证无效
+        QMessageBox.critical(None, '错误', '许可证无效或在错误的机器上使用')
+        # 删除无效的本地许可证文件
+        if os.path.exists('license.json'):
+            os.remove('license.json')
+        sys.exit()
+    else:
+        # 许可证有效,保存到本地
+        if not load_license_key():  # 只在第一次验证通过时保存
+            save_license_key(license_key)
+        
+        # 显示许可证信息
+        license_info = result[0]
+        print("许可证有效!过期时间:", license_info.expires)
+        
+        # 启动主程序
+        editor = SpellDatabaseEditor()
+        editor.show()
+        sys.exit(app.exec_())
