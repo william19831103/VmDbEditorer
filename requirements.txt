@@ -3,4 +3,5 @@ pywin32
 wmi
 PyQt5
 mysql-connector-python==8.0.33
-protobuf==3.20.3 
+protobuf==3.20.3
+nuitka 

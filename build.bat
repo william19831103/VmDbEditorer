@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 echo 开始构建程序...
 
 REM 切换到脚本所在目录
