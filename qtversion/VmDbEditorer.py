@@ -18,8 +18,9 @@ from PyQt5.QtCore import QTranslator, QLocale
 from licensing.models import *
 from licensing.methods import Key, Helpers
 
+# 更新授权信息
 RSAPubKey = "<RSAKeyValue><Modulus>uQUWtKKob4exvz0nyAUF2uqqJKKrthzCDkHtiI1sZqvlUf6WUpN1WyCpIQlxGV8Bbc7ZpdqjeNoTa6wTtpAHPA2llOD2k5dZpxFH017RZdgBQQrZYO7rW8Bf0OcpuyY6I8E6PuCRNnuMsrp+NsSDtnzxI2mRgfimj148jD82PUhEQytRuN6t49B8LzGWNCP8Elp1m1RD2h6BLkImfEB4UF6V2qa9BxHUukYu6CjtgJrCxciHta7g18llAuYDIPDHlUkH+acBAMkYZXcld9gkSEY/Pj6BCbRQbL8cs84g4h/2WlFREcb4aKLbIqtng/RhnX1WDPzBmMYxm4H96EQEhw==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>"
-auth = "WyI5ODQwNDA3MCIsInlNR2hGaXVjUXgrNHczTytUaUl1OFFsbm96SWV3SzRTTjVBOERsdysiXQ=="
+auth = "WyI5ODU5MTAwMyIsIkFyeGVES1cvT0UvUXZuMFV2VDJZR2x0eDBub0cxTlVxTjFaeTh5enQiXQ=="
 
 
 from spell_fields import (
@@ -84,6 +85,16 @@ FIELD_CATEGORIES = {
 class SpellDatabaseEditor(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        # 设置窗口图标
+        icon = QIcon("app.ico")
+        self.setWindowIcon(icon)
+        # 设置任务栏图标
+        if os.name == 'nt':  # Windows系统
+            import ctypes
+            myappid = 'mycompany.spelldbeditor.1.0'  # 任意字符串
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        
         self.current_entry = None
         self.current_build = None
         self.compare_history = []
@@ -397,7 +408,7 @@ class SpellDatabaseEditor(QMainWindow):
                     value_item.setText(formatted_value)
                     
         except Exception as e:
-            print(f"恢复值失败: {str(e)}")
+            print(f"恢复值失���������: {str(e)}")
     
     def saveChanges(self):
         if not self.current_entry or not hasattr(self, 'current_build'):
@@ -825,7 +836,7 @@ class SpellDatabaseEditor(QMainWindow):
         menu.exec_(self.table.viewport().mapToGlobal(pos))
     
     def copyValue(self, item):
-        """复制单元格值到剪贴板"""
+        """���制单元格值到剪贴板"""
         QApplication.clipboard().setText(item.text())
     
     def pasteValue(self, item):
@@ -1143,7 +1154,7 @@ class SpellDatabaseEditor(QMainWindow):
                         <table>
                             <tr>
                                 <th>值</th>
-                                <th>名称</th>
+                                <th>名���</th>
                                 <th>描述</th>
                             </tr>
                             {''.join(f'''
@@ -1187,7 +1198,7 @@ class SpellDatabaseEditor(QMainWindow):
         layout.addWidget(QLabel("选择历史记:"))
         layout.addWidget(history_combo)
         
-        # 创建输入区域
+        # 创建输入���域
         input_widget = QWidget()
         input_layout = QFormLayout(input_widget)
         entry_input = QLineEdit()
@@ -1293,7 +1304,7 @@ class SpellDatabaseEditor(QMainWindow):
         # 获取当前数据
         self.cursor.execute(
             "SELECT * FROM spell_template WHERE entry = %s AND build = %s",
-            (self.current_entry, self.current_build))
+            (self.current_entry, self.current_build))        
         current_data = self.cursor.fetchone()
         
         if current_data:
@@ -1341,7 +1352,7 @@ class SpellDatabaseEditor(QMainWindow):
         filter_layout.addWidget(QLabel("显示:"))
         
         show_all = QRadioButton("所有字段")
-        show_diff = QRadioButton("仅差异")
+        show_diff = QRadioButton("仅差��")
         show_all.setChecked(True)
         
         def update_filter():
@@ -1389,7 +1400,7 @@ class SpellDatabaseEditor(QMainWindow):
             try:
                 with open(filename, 'w', encoding='utf-8', newline='') as f:
                     writer = csv.writer(f)
-                    # 写入表头
+                    # 写��表头
                     headers = []
                     for col in range(table.columnCount()):
                         headers.append(table.horizontalHeaderItem(col).text())
@@ -1610,7 +1621,7 @@ class SpellDatabaseEditor(QMainWindow):
                 # 检查输入格式
                 if isinstance(value, str):
                     if '(' in value and '0x' in value:
-                        # 从显示格式中提取值 "123 (0x7B)" -> 123
+                        # ���显示格式中提取值 "123 (0x7B)" -> 123
                         value = int(value.split('(')[0].strip())
                     elif '0x' in value.lower():
                         # 处理十六进制字符串
@@ -2014,7 +2025,7 @@ class SpellDatabaseEditor(QMainWindow):
             shortcut_layout.addRow(f'{action}:', editor)
         
         # 添加标签页
-        tab_widget.addTab(db_tab, '数据库连接')
+        tab_widget.addTab(db_tab, '数���库连接')
         tab_widget.addTab(pref_tab, '用户偏好')
         tab_widget.addTab(shortcut_tab, '快捷键')
         
@@ -2064,7 +2075,7 @@ class SpellDatabaseEditor(QMainWindow):
         layout.addWidget(tab_widget)
         layout.addWidget(buttons)
         
-        # 连接信号
+        # �����接信号
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         
@@ -2234,7 +2245,7 @@ class SpellDatabaseEditor(QMainWindow):
         if path:
             line_edit.setText(path)
 
-    # 添加生成DBC和MPQ的方法框架
+    # 添加���成DBC和MPQ的���法框架
     def generateSpellDBC(self):
         """生成SPELL.DBC文件"""
         try:
@@ -2505,7 +2516,7 @@ class SpellDatabaseEditor(QMainWindow):
                 ORDER BY entry, build
             """
             
-            # ��行查询
+            # 行查询
             self.cursor.execute(query, values)
             results = self.cursor.fetchall()
             
@@ -2557,6 +2568,11 @@ class SpellDatabaseEditor(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, '错误', f'搜索失败: {str(e)}')
 
+    # 在显示对话框时设置图标
+    def showDialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowIcon(self.windowIcon())  # 使用主窗口的图标
+
 def center_window(window):
     """将窗口移动到屏幕中央"""
     screen = QDesktopWidget().screenGeometry()
@@ -2580,7 +2596,7 @@ def load_license_key():
     return None
 
 def save_license_key(key):
-    """保存许可证密钥到本地文件"""
+    """保存许可证密钥到本地���件"""
     license_file = "license.json"
     try:
         with open(license_file, 'w') as f:
@@ -2705,6 +2721,10 @@ if __name__ == '__main__':
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     
+    # 设置应用程序图标
+    app_icon = QIcon("app.ico")
+    app.setWindowIcon(app_icon)
+    
     # 强制使用英文
     app.setProperty('defaultLocale', 'en')
     app.setApplicationName('SpellEditor')
@@ -2765,12 +2785,28 @@ if __name__ == '__main__':
         result = Key.activate(
             token=auth,
             rsa_pub_key=RSAPubKey,
-            product_id=28126,
+            product_id=28151,  # 新的product_id
             key=license_key,
             machine_code=Helpers.GetMachineCode()
         )
 
         if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
+            # 显示更详细的错误信息
+            error_msg = "许可证验证失败:\n"
+            if result[0] == None:
+                error_msg += "- 无效的许可证密钥\n"
+            else:
+                error_msg += "- 许可证不匹配当前机器\n"
+            error_msg += "\n请确保输入了正确的许可证密钥。"
+            
+            error_dialog = QMessageBox()
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setWindowTitle('错误')
+            error_dialog.setText(error_msg)
+            error_dialog.setStandardButtons(QMessageBox.Ok)
+            center_window(error_dialog)
+            error_dialog.exec_()
+            
             # 删除无效的许可证文件
             if os.path.exists('license.dat'):
                 os.remove('license.dat')
@@ -2806,11 +2842,18 @@ if __name__ == '__main__':
             sys.exit(app.exec_())
             
     except Exception as e:
-        # 处理验证过程中的异常
+        # 更详细的错误信息
+        error_msg = f"验证许可证时发生错误:\n{str(e)}\n\n"
+        error_msg += "可能的原因:\n"
+        error_msg += "1. 网络连接问题\n"
+        error_msg += "2. 许可证服务器暂时不可用\n"
+        error_msg += "3. 许可证密钥格式错误\n"
+        error_msg += "\n请检查网络连接并重试。"
+        
         error_dialog = QMessageBox()
         error_dialog.setIcon(QMessageBox.Critical)
         error_dialog.setWindowTitle('错误')
-        error_dialog.setText(f'验证许可证时发生错误:\n{str(e)}')
+        error_dialog.setText(error_msg)
         error_dialog.setStandardButtons(QMessageBox.Ok)
         center_window(error_dialog)
         error_dialog.exec_()
