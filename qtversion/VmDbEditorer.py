@@ -408,7 +408,7 @@ class SpellDatabaseEditor(QMainWindow):
                     value_item.setText(formatted_value)
                     
         except Exception as e:
-            print(f"恢复值失���������: {str(e)}")
+            print(f"恢复值失���������������: {str(e)}")
     
     def saveChanges(self):
         if not self.current_entry or not hasattr(self, 'current_build'):
@@ -761,7 +761,7 @@ class SpellDatabaseEditor(QMainWindow):
         # 添加字段名单元格的点击事件
         self.table.itemClicked.connect(self.onTableItemClicked)
         
-        # 只保留点击事件
+        # 只保留点击事���
         # self.table.setMouseTracking(True)
         # self.table.cellEntered.connect(self.onCellEntered)
     
@@ -969,7 +969,7 @@ class SpellDatabaseEditor(QMainWindow):
             'effectTriggerSpell1': '效果1��发法术',
             'effectTriggerSpell2': '效果2触发法术',
             'effectTriggerSpell3': '效果3触发法术',
-            'effectPointsPerComboPoint1': '效果1每连击点数值',
+            'effectPointsPerComboPoint1': '效果1��连击点数值',
             'effectPointsPerComboPoint2': '效果2每连击点数值',
             'effectPointsPerComboPoint3': '效果3每连击点数值',
             'spellVisual1': '法术视觉效果1',
@@ -1500,7 +1500,7 @@ class SpellDatabaseEditor(QMainWindow):
                 self.cursor.execute(
                     f"SELECT {columns_str} FROM spell_template WHERE entry = %s AND build = %s",
                     (self.current_entry, self.current_build))
-                source_data = list(self.cursor.fetchone())
+                self.cursor.fetchone()
                 
                 # 修改entry和build值
                 entry_index = columns.index('entry')
@@ -1717,7 +1717,7 @@ class SpellDatabaseEditor(QMainWindow):
                 
                 # 确认恢复
                 reply = QMessageBox.question(
-                    self, '确认',
+                    self, '���认',
                     f'是否恢复Entry: {backup_data["entry"]}, Build: {backup_data["build"]}的备份数据？\n'
                     f'备份时: {backup_data["backup_time"]}',
                     QMessageBox.Yes | QMessageBox.No
@@ -2114,7 +2114,7 @@ class SpellDatabaseEditor(QMainWindow):
         """应用用户偏好设置"""
         preferences = self.config.get_preferences()
         
-        # 设置字体大小
+        # 设置字体��小
         font = self.font()
         font.setPointSize(preferences['font_size'])
         self.setFont(font)
@@ -2373,8 +2373,7 @@ class SpellDatabaseEditor(QMainWindow):
                     # 调用DLL函数
                     result = mpq_dll.run_str(
                         mpq_file_path.encode('utf-8'),
-                        source_dir_path.encode('utf-8')
-                    )
+                        source_dir_path.encode('utf-8'))
                     
                     if result == 0:
                         QMessageBox.information(self, '成功', 
@@ -2415,7 +2414,7 @@ class SpellDatabaseEditor(QMainWindow):
             ('effectApplyAuraName3', 'Aura 3', SPELL_AURA_TYPES),
         ]
         
-        # 创建搜索输入框和提示列表
+        # 创���搜索输入框和提示列表
         self.search_inputs = {}
         self.search_lists = {}
         
@@ -2622,17 +2621,22 @@ class LicenseManager:
         self._key = base64.urlsafe_b64encode(hashlib.sha256(self._hw_id.encode()).digest())
         
     def _get_hardware_id(self):
-        """获取硬件信息的混合值"""
+        """获取硬件信息的混合值 - 优化版本"""
         try:
-            import wmi
-            c = wmi.WMI()
-            # 混合多个硬件信息
-            cpu_id = c.Win32_Processor()[0].ProcessorId
-            bios_id = c.Win32_BIOS()[0].SerialNumber
-            disk_id = c.Win32_DiskDrive()[0].SerialNumber
-            return hashlib.sha256(f"{cpu_id}{bios_id}{disk_id}".encode()).hexdigest()
-        except:
+            # 首先尝试使用更快的方式
             return Helpers.GetMachineCode()
+        except:
+            try:
+                # 如果失败再使用WMI，但设置较短的超时时间
+                import wmi
+                c = wmi.WMI(timeout=2)  # 设置2秒超时
+                cpu = next(c.Win32_Processor())  # 只获取第一个处理器
+                bios = next(c.Win32_BIOS())  # 只获取第一个BIOS
+                disk = next(c.Win32_DiskDrive())  # 只获取第一个磁盘
+                return hashlib.sha256(f"{cpu.ProcessorId}{bios.SerialNumber}{disk.SerialNumber}".encode()).hexdigest()
+            except:
+                # 如果WMI也失败，返回基本的机器码
+                return Helpers.GetMachineCode()
 
     def save_license(self, key):
         """加密保存许可证"""
@@ -2673,44 +2677,22 @@ class LicenseManager:
 
 # 添加反调试和完整性检查
 def check_environment():
-    """检查运行环境"""
+    """检查运行环境 - 优化版本"""
     try:
-        # 基本检查
+        # 只保留基本的调试器检查
         if ctypes.windll.kernel32.IsDebuggerPresent():
             return False
             
-        # 检测虚拟机
-        try:
-            import wmi
-            c = wmi.WMI()
-            for item in c.Win32_ComputerSystem():
-                if any(x in item.Model.lower() for x in ['virtual', 'vmware', 'vbox']):
-                    return False
-        except:
-            pass
-            
-        # 检测常见调试工具进程
-        suspicious_processes = [
-            'x32dbg.exe', 'x64dbg.exe', 'ollydbg.exe', 'ida.exe', 
-            'ida64.exe', 'radare2.exe', 'windbg.exe'
-        ]
-        
-        import wmi
-        c = wmi.WMI()
-        running_processes = [p.Name.lower() for p in c.Win32_Process()]
-        if any(p in running_processes for p in suspicious_processes):
-            return False
-            
-        # 检测系统时间异常
-        start_time = time.time()
-        time.sleep(0.1)
-        end_time = time.time()
-        if end_time - start_time > 0.5:  # 时间流逝异常
+        # 简化进程检查
+        import psutil
+        suspicious = ['x32dbg', 'x64dbg', 'ollydbg', 'ida', 'windbg']
+        current_processes = [p.name().lower() for p in psutil.process_iter(['name'])]
+        if any(s in ''.join(current_processes) for s in suspicious):
             return False
             
         return True
     except:
-        return True  # 如果检查过程出错，允许程序运行
+        return True
 
 # 在主程序开始时添加检查
 if __name__ == '__main__':
@@ -2719,49 +2701,48 @@ if __name__ == '__main__':
 
 # 修改主程序验证部分
 if __name__ == '__main__':
+    # 先创建应用程序实例
     app = QApplication(sys.argv)
     
-    # 设置应用程序图标
+    # 设置应用程序图标和语言
     app_icon = QIcon("app.ico")
     app.setWindowIcon(app_icon)
-    
-    # 强制使用英文
     app.setProperty('defaultLocale', 'en')
     app.setApplicationName('SpellEditor')
     
     # 确保 Qt 能找到插件
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller 打包后的路径
         qt_plugin_path = os.path.join(sys._MEIPASS, 'platforms')
     else:
-        # 开发环境路径
         qt_plugin_path = os.path.join(os.path.dirname(__file__), 'platforms')
-    
     os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = qt_plugin_path
+    
+    # 创建启动画面
+    splash = QSplashScreen(QPixmap("app.ico"))
+    splash.show()
+    app.processEvents()
     
     # 使用许可证管理器
     license_manager = LicenseManager()
     license_key = license_manager.load_license()
     
     if not license_key:
-        # 如果没有本地密钥,显示输入对话框
+        splash.close()
+        # 显示许可证输入对话框
         key_dialog = QDialog()
         key_dialog.setWindowTitle('输入许可证密钥')
-        key_dialog.setFixedSize(400, 150)  # 设置固定大小
+        key_dialog.setFixedSize(400, 150)
         layout = QVBoxLayout()
         
-        # 添加说明标签
         info_label = QLabel('请输入有效的许可证密钥:')
         info_label.setStyleSheet('padding: 10px;')
         layout.addWidget(info_label)
         
-        # 输入框
         key_input = QLineEdit()
         key_input.setPlaceholderText('请输入许可证密钥')
         key_input.setStyleSheet('padding: 5px; margin: 5px;')
         layout.addWidget(key_input)
         
-        # 按钮
         button_box = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
@@ -2771,27 +2752,25 @@ if __name__ == '__main__':
         layout.addWidget(button_box)
         
         key_dialog.setLayout(layout)
-        
-        # 将对话框移到屏幕中央
         center_window(key_dialog)
         
         if key_dialog.exec_() == QDialog.Accepted:
             license_key = key_input.text().strip()
         else:
             sys.exit()
-
+    
     # 验证许可证
     try:
         result = Key.activate(
             token=auth,
             rsa_pub_key=RSAPubKey,
-            product_id=28151,  # 新的product_id
+            product_id=28151,
             key=license_key,
             machine_code=Helpers.GetMachineCode()
         )
 
         if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
-            # 显示更详细的错误信息
+            splash.close()
             error_msg = "许可证验证失败:\n"
             if result[0] == None:
                 error_msg += "- 无效的许可证密钥\n"
@@ -2799,50 +2778,40 @@ if __name__ == '__main__':
                 error_msg += "- 许可证不匹配当前机器\n"
             error_msg += "\n请确保输入了正确的许可证密钥。"
             
-            error_dialog = QMessageBox()
-            error_dialog.setIcon(QMessageBox.Critical)
-            error_dialog.setWindowTitle('错误')
-            error_dialog.setText(error_msg)
-            error_dialog.setStandardButtons(QMessageBox.Ok)
-            center_window(error_dialog)
-            error_dialog.exec_()
-            
-            # 删除无效的许可证文件
+            QMessageBox.critical(None, '错误', error_msg)
             if os.path.exists('license.dat'):
                 os.remove('license.dat')
             sys.exit()
+            
+        # 许可证验证通过
+        if not license_manager.load_license():
+            license_manager.save_license(license_key)
+        
+        # 启动主程序
+        editor = SpellDatabaseEditor()
+        
+        # 恢复窗口位置
+        config = Config()
+        preferences = config.get_preferences()
+        if 'window_geometry' in preferences:
+            geometry = preferences['window_geometry']
+            editor.setGeometry(
+                geometry.get('x', 100),
+                geometry.get('y', 100),
+                geometry.get('width', 1920),
+                geometry.get('height', 1000)
+            )
         else:
-            # 保存加密的许可证
-            if not license_manager.load_license():
-                license_manager.save_license(license_key)
-            
-            # 显示许可证信息
-            license_info = result[0]
-            print("许可证有效!过期时间:", license_info.expires)
-            
-            # 启动主程序
-            editor = SpellDatabaseEditor()
-            
-            # 尝试恢复上次的窗口位置
-            config = Config()
-            preferences = config.get_preferences()
-            if 'window_geometry' in preferences:
-                geometry = preferences['window_geometry']
-                editor.setGeometry(
-                    geometry.get('x', 100),
-                    geometry.get('y', 100),
-                    geometry.get('width', 1920),
-                    geometry.get('height', 1000)
-                )
-            else:
-                # 如果没有保存的位置，则居中显示
-                center_window(editor)
-                
-            editor.show()
-            sys.exit(app.exec_())
-            
+            center_window(editor)
+        
+        # 关闭启动画面，显示主窗口
+        splash.finish(editor)
+        editor.show()
+        
+        sys.exit(app.exec_())
+        
     except Exception as e:
-        # 更详细的错误信息
+        splash.close()
         error_msg = f"验证许可证时发生错误:\n{str(e)}\n\n"
         error_msg += "可能的原因:\n"
         error_msg += "1. 网络连接问题\n"
@@ -2850,11 +2819,5 @@ if __name__ == '__main__':
         error_msg += "3. 许可证密钥格式错误\n"
         error_msg += "\n请检查网络连接并重试。"
         
-        error_dialog = QMessageBox()
-        error_dialog.setIcon(QMessageBox.Critical)
-        error_dialog.setWindowTitle('错误')
-        error_dialog.setText(error_msg)
-        error_dialog.setStandardButtons(QMessageBox.Ok)
-        center_window(error_dialog)
-        error_dialog.exec_()
+        QMessageBox.critical(None, '错误', error_msg)
         sys.exit()

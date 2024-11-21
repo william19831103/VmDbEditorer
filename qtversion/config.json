@@ -4,15 +4,17 @@
         "port": 3306,
         "user": "root",
         "password": "root",
-        "database": "mangos"
+        "database": "mangos",
+        "auth_plugin": "mysql_native_password",
+        "use_pure": true
     },
     "preferences": {
         "theme": "light",
         "font_size": 12,
         "table_row_height": 30,
         "window_geometry": {
-            "x": 60,
-            "y": 79,
+            "x": -17,
+            "y": 23,
             "width": 2128,
             "height": 1132
         },
