@@ -9,6 +9,11 @@ from datetime import datetime
 import ctypes
 import shutil
 from PyQt5.QtWidgets import QDesktopWidget
+import base64
+import hashlib
+from cryptography.fernet import Fernet
+import time
+from PyQt5.QtCore import QTranslator, QLocale
 
 from licensing.models import *
 from licensing.methods import Key, Helpers
@@ -648,6 +653,11 @@ class SpellDatabaseEditor(QMainWindow):
         """初始化数据库连接"""
         try:
             db_config = self.config.get_database_config()
+            # 添加auth_plugin配置
+            db_config['auth_plugin'] = 'mysql_native_password'
+            # 添加 use_pure 参数
+            db_config['use_pure'] = True
+            
             self.conn = mysql.connector.connect(**db_config)
             self.cursor = self.conn.cursor(buffered=True)
             self.statusBar().showMessage('数据库连接成功')
@@ -655,6 +665,11 @@ class SpellDatabaseEditor(QMainWindow):
         except Exception as e:
             self.conn = None
             self.cursor = None
+            # 显示详细的错误信息
+            error_msg = f'数据库连接失败: {str(e)}\n'
+            error_msg += f'配置信息: {db_config}\n'
+            error_msg += '请检查:\n1. 数据库服务是否启动\n2. 配置信息是否正确\n3. 网络连接是否正常'
+            QMessageBox.critical(self, '错误', error_msg)
             raise e
     
     def initTable(self):
@@ -940,7 +955,7 @@ class SpellDatabaseEditor(QMainWindow):
             'effectMiscValue1': '效果1杂项值',
             'effectMiscValue2': '效果2杂项值',
             'effectMiscValue3': '效果3杂项值',
-            'effectTriggerSpell1': '效果1触发法术',
+            'effectTriggerSpell1': '效果1��发法术',
             'effectTriggerSpell2': '效果2触发法术',
             'effectTriggerSpell3': '效果3触发法术',
             'effectPointsPerComboPoint1': '效果1每连击点数值',
@@ -1209,8 +1224,7 @@ class SpellDatabaseEditor(QMainWindow):
                 # 查对比数据
                 self.cursor.execute(
                     "SELECT * FROM spell_template WHERE entry = %s AND build = %s",
-                    (compare_entry, compare_build)
-                )
+                    (compare_entry, compare_build))
                 compare_result = self.cursor.fetchone()
                 
                 if compare_result:
@@ -1279,8 +1293,7 @@ class SpellDatabaseEditor(QMainWindow):
         # 获取当前数据
         self.cursor.execute(
             "SELECT * FROM spell_template WHERE entry = %s AND build = %s",
-            (self.current_entry, self.current_build)
-        )
+            (self.current_entry, self.current_build))
         current_data = self.cursor.fetchone()
         
         if current_data:
@@ -1475,8 +1488,7 @@ class SpellDatabaseEditor(QMainWindow):
                 # 获取源数据
                 self.cursor.execute(
                     f"SELECT {columns_str} FROM spell_template WHERE entry = %s AND build = %s",
-                    (self.current_entry, self.current_build)
-                )
+                    (self.current_entry, self.current_build))
                 source_data = list(self.cursor.fetchone())
                 
                 # 修改entry和build值
@@ -1488,8 +1500,7 @@ class SpellDatabaseEditor(QMainWindow):
                 # 执行插入
                 self.cursor.execute(
                     f"INSERT INTO spell_template ({columns_str}) VALUES ({placeholders})",
-                    tuple(source_data)
-                )
+                    tuple(source_data))
                 self.conn.commit()
                 
                 QMessageBox.information(self, '成功', f'法术已复制到ID: {new_id}')
@@ -1648,7 +1659,7 @@ class SpellDatabaseEditor(QMainWindow):
             self.cursor.execute(
                 "SELECT * FROM spell_template WHERE entry = %s AND build = %s",
                 (self.current_entry, self.current_build))
-            current_data = self.cursor.fetchone()
+            self.cursor.fetchone()
             
             if current_data:
                 # 获取列名
@@ -1888,7 +1899,7 @@ class SpellDatabaseEditor(QMainWindow):
         self.statusBar().showMessage(f'已重做 {action["field_name"]} 的修改')
 
     def setupFieldAutoComplete(self, item, field_name):
-        """设置字段值自动补全"""
+        """设置字段值���动补全"""
         if field_name not in self.field_value_history:
             # 从数据库获取该字段的历史值
             try:
@@ -2048,7 +2059,7 @@ class SpellDatabaseEditor(QMainWindow):
             Qt.Horizontal, dialog
         )
         
-        # 创建主布局
+        # ���建主布局
         layout = QVBoxLayout(dialog)
         layout.addWidget(tab_widget)
         layout.addWidget(buttons)
@@ -2203,7 +2214,7 @@ class SpellDatabaseEditor(QMainWindow):
         self.config.set_preferences(preferences)
         
     def restoreWindowState(self):
-        """恢复窗口位置和大小"""
+        """恢复窗口位置和��小"""
         preferences = self.config.get_preferences()
         if 'window_geometry' in preferences:
             geometry = preferences['window_geometry']
@@ -2360,7 +2371,7 @@ class SpellDatabaseEditor(QMainWindow):
                         )
                         self.statusBar().showMessage('MPQ生成成功')
                     else:
-                        QMessageBox.critical(self, '错误', 'MPQ生成失败')
+                        QMessageBox.critical(self, '错误', 'MPQ生成失��')
                 else:
                     error = ctypes.get_last_error()
                     QMessageBox.critical(self, '错误', f'加载DLL失败: 错误码 {error}')
@@ -2483,7 +2494,7 @@ class SpellDatabaseEditor(QMainWindow):
                         continue
             
             if not conditions:
-                QMessageBox.warning(self, '警告', '请至少输入一个搜索条件')
+                QMessageBox.warning(self, '警告', '请至少输入���个搜索条件')
                 return
             
             # 构建SQL查询
@@ -2494,7 +2505,7 @@ class SpellDatabaseEditor(QMainWindow):
                 ORDER BY entry, build
             """
             
-            # 执行查询
+            # ��行查询
             self.cursor.execute(query, values)
             results = self.cursor.fetchall()
             
@@ -2546,6 +2557,16 @@ class SpellDatabaseEditor(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, '错误', f'搜索失败: {str(e)}')
 
+def center_window(window):
+    """将窗口移动到屏幕中央"""
+    screen = QDesktopWidget().screenGeometry()
+    size = window.geometry()
+    x = (screen.width() - size.width()) // 2
+    y = (screen.height() - size.height()) // 2
+    # 确保窗口不会太靠上，至少留出标题栏的空间
+    y = max(y, 50)  
+    window.move(x, y)
+
 def load_license_key():
     """从本地文件加载许可证密钥"""
     license_file = "license.json"
@@ -2568,23 +2589,139 @@ def save_license_key(key):
     except:
         return False
 
-# 添加一个辅助函数来居中显示窗口
-def center_window(window):
-    """将窗口移动到屏幕中央"""
-    screen = QDesktopWidget().screenGeometry()
-    size = window.geometry()
-    x = (screen.width() - size.width()) // 2
-    y = (screen.height() - size.height()) // 2
-    # 确保窗口不会太靠上，至少留出标题栏的空间
-    y = max(y, 50)  
-    window.move(x, y)
+# 添加一些关键数据的加密函数
+def encrypt_data(data, key):
+    f = Fernet(key)
+    return f.encrypt(data.encode()).decode()
 
-# 修改主程序部分
+def decrypt_data(encrypted_data, key):
+    f = Fernet(key)
+    return f.decrypt(encrypted_data.encode()).decode()
+
+# 修改许可证相关的代码
+class LicenseManager:
+    def __init__(self):
+        # 使用硬件信息生成唯一密钥
+        self._hw_id = self._get_hardware_id()
+        self._key = base64.urlsafe_b64encode(hashlib.sha256(self._hw_id.encode()).digest())
+        
+    def _get_hardware_id(self):
+        """获取硬件信息的混合值"""
+        try:
+            import wmi
+            c = wmi.WMI()
+            # 混合多个硬件信息
+            cpu_id = c.Win32_Processor()[0].ProcessorId
+            bios_id = c.Win32_BIOS()[0].SerialNumber
+            disk_id = c.Win32_DiskDrive()[0].SerialNumber
+            return hashlib.sha256(f"{cpu_id}{bios_id}{disk_id}".encode()).hexdigest()
+        except:
+            return Helpers.GetMachineCode()
+
+    def save_license(self, key):
+        """加密保存许可证"""
+        try:
+            encrypted_key = encrypt_data(key, self._key)
+            checksum = hashlib.sha256(encrypted_key.encode()).hexdigest()
+            data = {
+                'k': encrypted_key,
+                'h': checksum,
+                'v': base64.b64encode(self._hw_id.encode()).decode()
+            }
+            with open("license.dat", 'w') as f:  # 改用不明显的扩展名
+                json.dump(data, f)
+            return True
+        except:
+            return False
+
+    def load_license(self):
+        """解密加载许可证"""
+        try:
+            if not os.path.exists("license.dat"):
+                return None
+                
+            with open("license.dat", 'r') as f:
+                data = json.load(f)
+                
+            # 验证硬件信息和校验和
+            if data['h'] != hashlib.sha256(data['k'].encode()).hexdigest():
+                return None
+                
+            stored_hw = base64.b64decode(data['v'].encode()).decode()
+            if stored_hw != self._hw_id:
+                return None
+                
+            return decrypt_data(data['k'], self._key)
+        except:
+            return None
+
+# 添加反调试和完整性检查
+def check_environment():
+    """检查运行环境"""
+    try:
+        # 基本检查
+        if ctypes.windll.kernel32.IsDebuggerPresent():
+            return False
+            
+        # 检测虚拟机
+        try:
+            import wmi
+            c = wmi.WMI()
+            for item in c.Win32_ComputerSystem():
+                if any(x in item.Model.lower() for x in ['virtual', 'vmware', 'vbox']):
+                    return False
+        except:
+            pass
+            
+        # 检测常见调试工具进程
+        suspicious_processes = [
+            'x32dbg.exe', 'x64dbg.exe', 'ollydbg.exe', 'ida.exe', 
+            'ida64.exe', 'radare2.exe', 'windbg.exe'
+        ]
+        
+        import wmi
+        c = wmi.WMI()
+        running_processes = [p.Name.lower() for p in c.Win32_Process()]
+        if any(p in running_processes for p in suspicious_processes):
+            return False
+            
+        # 检测系统时间异常
+        start_time = time.time()
+        time.sleep(0.1)
+        end_time = time.time()
+        if end_time - start_time > 0.5:  # 时间流逝异常
+            return False
+            
+        return True
+    except:
+        return True  # 如果检查过程出错，允许程序运行
+
+# 在主程序开始时添加检查
+if __name__ == '__main__':
+    if not check_environment():
+        sys.exit()
+
+# 修改主程序验证部分
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-
-    # 先尝试从本地加载许可证密钥
-    license_key = load_license_key()
+    
+    # 强制使用英文
+    app.setProperty('defaultLocale', 'en')
+    app.setApplicationName('SpellEditor')
+    
+    # 确保 Qt 能找到插件
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller 打包后的路径
+        qt_plugin_path = os.path.join(sys._MEIPASS, 'platforms')
+    else:
+        # 开发环境路径
+        qt_plugin_path = os.path.join(os.path.dirname(__file__), 'platforms')
+    
+    os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = qt_plugin_path
+    
+    # 使用许可证管理器
+    license_manager = LicenseManager()
+    license_key = license_manager.load_license()
     
     if not license_key:
         # 如果没有本地密钥,显示输入对话框
@@ -2634,24 +2771,14 @@ if __name__ == '__main__':
         )
 
         if result[0] == None or not Helpers.IsOnRightMachine(result[0]):
-            # 许可证无效时显示错误对话框
-            error_dialog = QMessageBox()
-            error_dialog.setIcon(QMessageBox.Critical)
-            error_dialog.setWindowTitle('错误')
-            error_dialog.setText('许可证无效或在错误的机器上使用')
-            error_dialog.setStandardButtons(QMessageBox.Ok)
-            # 确保错误对话框显示在屏幕中央
-            center_window(error_dialog)
-            error_dialog.exec_()
-            
-            # 删除无效的本地许可证文件
-            if os.path.exists('license.json'):
-                os.remove('license.json')
+            # 删除无效的许可证文件
+            if os.path.exists('license.dat'):
+                os.remove('license.dat')
             sys.exit()
         else:
-            # 许可证有效,保存到本地
-            if not load_license_key():  # 只在第一次验证通过时保存
-                save_license_key(license_key)
+            # 保存加密的许可证
+            if not license_manager.load_license():
+                license_manager.save_license(license_key)
             
             # 显示许可证信息
             license_info = result[0]
